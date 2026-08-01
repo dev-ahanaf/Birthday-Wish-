@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { WishFormData, BirthdayWish } from "@/lib/types";
-import { createWishInDatabase } from "@/lib/supabase/client";
+import { createWishInDatabase, encodeWishToUrl } from "@/lib/supabase/client";
 import { THEMES } from "@/lib/themes";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
@@ -50,7 +50,8 @@ export function Step6PreviewPublish({ formData, onEditStep }: Step6Props) {
   const getFullShareUrl = () => {
     if (!publishedWish) return "";
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    return `${origin}/wish/${publishedWish.slug}`;
+    const encoded = encodeWishToUrl(publishedWish);
+    return `${origin}/wish/${publishedWish.slug}${encoded ? `?d=${encoded}` : ""}`;
   };
 
   const handleCopyLink = () => {

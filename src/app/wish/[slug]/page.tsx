@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import React, { useState, useEffect, Suspense } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { BirthdayWish } from "@/lib/types";
 import { fetchWishBySlug, incrementWishViews } from "@/lib/supabase/client";
 import { SurpriseIntro } from "@/components/wish/SurpriseIntro";
@@ -14,10 +14,12 @@ import { FloatingEffects } from "@/components/wish/FloatingEffects";
 import { WishActions } from "@/components/wish/WishActions";
 import { Sparkles } from "lucide-react";
 
-export default function WishPage() {
+function WishContent() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const slug = params?.slug as string;
+  const encodedParam = searchParams.get("d") || undefined;
 
   const [wish, setWish] = useState<BirthdayWish | null>(null);
   const [loading, setLoading] = useState(true);
@@ -29,7 +31,7 @@ export default function WishPage() {
 
     async function loadWish() {
       setLoading(true);
-      const data = await fetchWishBySlug(slug);
+      const data = await fetchWishBySlug(slug, encodedParam);
       if (!data) {
         router.push("/not-found");
         return;
@@ -40,7 +42,7 @@ export default function WishPage() {
     }
 
     loadWish();
-  }, [slug, router]);
+  }, [slug, encodedParam, router]);
 
   const handleStartSurprise = () => {
     setHasStarted(true);
@@ -123,3 +125,18 @@ export default function WishPage() {
     </>
   );
 }
+
+export default function WishPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
+          <div className="w-12 h-12 rounded-full border-4 border-pink-500 border-t-transparent animate-spin" />
+        </div>
+      }
+    >
+      <WishContent />
+    </Suspense>
+  );
+}
+

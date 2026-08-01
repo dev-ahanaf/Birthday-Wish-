@@ -112,7 +112,73 @@ export async function createWishInDatabase(data: WishFormData): Promise<Birthday
   return wishRecord;
 }
 
-export async function fetchWishBySlug(slug: string): Promise<BirthdayWish | null> {
+export function encodeWishToUrl(wish: BirthdayWish): string {
+  try {
+    const payload = {
+      rn: wish.recipient_name,
+      rel: wish.relationship,
+      bd: wish.birthday_date,
+      t: wish.title,
+      m: wish.message,
+      q: wish.quote,
+      sn: wish.sender_name,
+      th: wish.theme,
+      mt: wish.music_track,
+      me: wish.music_enabled,
+      ce: wish.confetti_enabled,
+      eff: wish.effects,
+      p: wish.photos?.map((p) => p.image_url) || [],
+    };
+    const jsonStr = JSON.stringify(payload);
+    // Base64 encode
+    if (typeof window !== "undefined" && window.btoa) {
+      return encodeURIComponent(window.btoa(encodeURIComponent(jsonStr)));
+    }
+    return "";
+  } catch {
+    return "";
+  }
+}
+
+export function decodeWishFromUrl(encodedData: string, slug: string): BirthdayWish | null {
+  try {
+    if (!encodedData) return null;
+    const decodedBase64 = decodeURIComponent(encodedData);
+    const jsonStr = decodeURIComponent(atob(decodedBase64));
+    const data = JSON.parse(jsonStr);
+
+    const now = new Date().toISOString();
+    return {
+      id: `url_${slug}`,
+      slug,
+      recipient_name: data.rn || "Friend",
+      relationship: data.rel || "friend",
+      birthday_date: data.bd,
+      title: data.t || "Happy Birthday! 🎉",
+      message: data.m || "",
+      quote: data.q,
+      sender_name: data.sn || "A Special Friend",
+      theme: data.th || "romantic",
+      music_track: data.mt || "synth-celebration",
+      music_enabled: data.me ?? true,
+      confetti_enabled: data.ce ?? true,
+      effects: data.eff || ["confetti", "balloons"],
+      view_count: 1,
+      is_public: true,
+      created_at: now,
+      updated_at: now,
+      photos: (data.p || []).map((url: string, idx: number) => ({
+        id: `p_${idx}`,
+        image_url: url,
+        display_order: idx,
+      })),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function fetchWishBySlug(slug: string, encodedParam?: string): Promise<BirthdayWish | null> {
   if (supabase) {
     try {
       const { data, error } = await supabase
@@ -132,11 +198,20 @@ export async function fetchWishBySlug(slug: string): Promise<BirthdayWish | null
     }
   }
 
-  // Fallback lookup
+  // Fallback 1: LocalStorage lookup
   const wishes = getLocalWishes();
   const found = wishes.find((w) => w.slug === slug);
-  return found || null;
+  if (found) return found;
+
+  // Fallback 2: URL payload decode
+  if (encodedParam) {
+    const decoded = decodeWishFromUrl(encodedParam, slug);
+    if (decoded) return decoded;
+  }
+
+  return null;
 }
+
 
 export async function incrementWishViews(slug: string): Promise<number> {
   if (supabase) {
