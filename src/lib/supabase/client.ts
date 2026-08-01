@@ -114,6 +114,11 @@ export async function createWishInDatabase(data: WishFormData): Promise<Birthday
 
 export function encodeWishToUrl(wish: BirthdayWish): string {
   try {
+    // Only include http/https image URLs in URL parameter to keep link concise (<2000 chars)
+    const validHttpPhotos = (wish.photos || [])
+      .map((p) => p.image_url)
+      .filter((url) => url && (url.startsWith("http://") || url.startsWith("https://")));
+
     const payload = {
       rn: wish.recipient_name,
       rel: wish.relationship,
@@ -127,10 +132,9 @@ export function encodeWishToUrl(wish: BirthdayWish): string {
       me: wish.music_enabled,
       ce: wish.confetti_enabled,
       eff: wish.effects,
-      p: wish.photos?.map((p) => p.image_url) || [],
+      p: validHttpPhotos,
     };
     const jsonStr = JSON.stringify(payload);
-    // Base64 encode
     if (typeof window !== "undefined" && window.btoa) {
       return encodeURIComponent(window.btoa(encodeURIComponent(jsonStr)));
     }
@@ -143,11 +147,22 @@ export function encodeWishToUrl(wish: BirthdayWish): string {
 export function decodeWishFromUrl(encodedData: string, slug: string): BirthdayWish | null {
   try {
     if (!encodedData) return null;
-    const decodedBase64 = decodeURIComponent(encodedData);
-    const jsonStr = decodeURIComponent(atob(decodedBase64));
-    const data = JSON.parse(jsonStr);
+    let jsonStr = "";
+    
+    try {
+      const decodedBase64 = decodeURIComponent(encodedData);
+      jsonStr = decodeURIComponent(atob(decodedBase64));
+    } catch {
+      try {
+        jsonStr = decodeURIComponent(atob(encodedData));
+      } catch {
+        jsonStr = atob(encodedData);
+      }
+    }
 
+    const data = JSON.parse(jsonStr);
     const now = new Date().toISOString();
+
     return {
       id: `url_${slug}`,
       slug,
