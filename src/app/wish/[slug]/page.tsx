@@ -17,7 +17,6 @@ import { Sparkles } from "lucide-react";
 function WishContent() {
   const params = useParams();
   const searchParams = useSearchParams();
-  const router = useRouter();
   const slug = params?.slug as string;
   const encodedParam = searchParams.get("d") || undefined;
 
@@ -31,18 +30,26 @@ function WishContent() {
 
     async function loadWish() {
       setLoading(true);
-      const data = await fetchWishBySlug(slug, encodedParam);
-      if (!data) {
-        router.push("/not-found");
-        return;
+
+      // Read directly from window.location if searchParams is empty on initial tick
+      let rawParam = encodedParam;
+      if (!rawParam && typeof window !== "undefined") {
+        const urlParams = new URLSearchParams(window.location.search);
+        rawParam = urlParams.get("d") || undefined;
       }
-      setWish(data);
+
+      const data = await fetchWishBySlug(slug, rawParam);
+      if (data) {
+        setWish(data);
+        incrementWishViews(slug).catch(() => {});
+      } else {
+        setWish(null);
+      }
       setLoading(false);
-      incrementWishViews(slug).catch(() => {});
     }
 
     loadWish();
-  }, [slug, encodedParam, router]);
+  }, [slug, encodedParam]);
 
   const handleStartSurprise = () => {
     setHasStarted(true);
@@ -65,7 +72,29 @@ function WishContent() {
     );
   }
 
-  if (!wish) return null;
+  if (!wish) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
+        <div className="max-w-md w-full p-8 rounded-3xl bg-slate-900/80 border border-slate-800 backdrop-blur-2xl text-center space-y-6">
+          <div className="w-16 h-16 rounded-2xl bg-pink-500/20 text-pink-400 border border-pink-500/30 flex items-center justify-center mx-auto">
+            <Sparkles className="w-8 h-8 opacity-60" />
+          </div>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-extrabold text-white">Birthday Wish Link Not Found</h1>
+            <p className="text-xs text-slate-400">
+              This wish link may have been created on another device without cloud storage, or entered incorrectly.
+            </p>
+          </div>
+          <a
+            href="/create"
+            className="block w-full py-3 rounded-xl bg-gradient-to-r from-pink-500 to-rose-600 text-white font-semibold text-sm"
+          >
+            Create a New Birthday Wish
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

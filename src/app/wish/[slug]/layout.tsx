@@ -8,15 +8,12 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const wish = await fetchWishBySlug(params.slug);
 
-  if (!wish) {
-    return {
-      title: "Birthday Wish Not Found - WishBloom",
-      description: "This birthday wish link is invalid or has expired.",
-    };
-  }
-
-  const title = `🎉 A Special Birthday Surprise for ${wish.recipient_name}!`;
-  const description = `"${wish.title}" - Tap to open your full-screen animated birthday surprise from ${wish.sender_name}!`;
+  const title = wish
+    ? `🎉 A Special Birthday Surprise for ${wish.recipient_name}!`
+    : "🎉 A Special Birthday Surprise | WishBloom";
+  const description = wish
+    ? `"${wish.title}" - Tap to open your full-screen animated birthday surprise from ${wish.sender_name}!`
+    : "Tap to open your full-screen animated birthday surprise!";
 
   return {
     title,
@@ -25,7 +22,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title,
       description,
       type: "website",
-      images: wish.photos && wish.photos[0] ? [wish.photos[0].image_url] : undefined,
+      images: wish?.photos && wish.photos[0] ? [wish.photos[0].image_url] : undefined,
     },
     twitter: {
       card: "summary_large_image",
