@@ -85,6 +85,7 @@ export function Step6PreviewPublish({ formData, onEditStep }: Step6Props) {
           event_type: formData.event_type,
           recipient_name: formData.recipient_name.trim(),
           sender_name: formData.sender_name.trim(),
+          sign_off_phrase: formData.sign_off_phrase || "With All Our Love",
           title: formData.title ? formData.title.trim() : null,
           message: formData.message.trim(),
           quote: formData.quote ? formData.quote.trim() : null,

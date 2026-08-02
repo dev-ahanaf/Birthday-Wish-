@@ -72,6 +72,7 @@ export default function WishPage() {
             event_type: data.event_type || "birthday",
             recipient_name: data.recipient_name,
             sender_name: data.sender_name,
+            sign_off_phrase: data.sign_off_phrase || "With All Our Love",
             title: data.title || "Happy Birthday! 🎉",
             message: data.message,
             quote: data.quote,
@@ -229,6 +230,7 @@ export default function WishPage() {
             message={wish.message}
             quote={wish.quote}
             senderName={wish.sender_name}
+            signOffPhrase={wish.sign_off_phrase}
             themeId={wish.theme}
           />
 

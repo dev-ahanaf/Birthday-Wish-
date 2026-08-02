@@ -40,6 +40,7 @@ export const step2Schema = z.object({
     .string()
     .min(2, "Sender name must be at least 2 characters")
     .max(50, "Sender name cannot exceed 50 characters"),
+  sign_off_phrase: z.string().max(80, "Sign-off phrase cannot exceed 80 characters").optional(),
   quote: z.string().max(250, "Quote cannot exceed 250 characters").optional(),
 });
 

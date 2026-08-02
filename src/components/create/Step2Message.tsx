@@ -88,6 +88,15 @@ const PRESET_MESSAGES: Record<string, { title: string; quote: string; messages: 
   },
 };
 
+const SIGN_OFF_PRESETS = [
+  "With All Our Love",
+  "With Love",
+  "Sending Warm Wishes",
+  "Forever & Always",
+  "With Heartfelt Gratitude",
+  "Best Wishes",
+];
+
 export function Step2Message({ eventType = "birthday", initialData, onNext, onBack }: Step2Props) {
   const presets = PRESET_MESSAGES[eventType] || PRESET_MESSAGES.birthday;
 
@@ -103,6 +112,7 @@ export function Step2Message({ eventType = "birthday", initialData, onNext, onBa
       title: initialData.title || presets.title,
       message: initialData.message || presets.messages[0],
       sender_name: initialData.sender_name || "",
+      sign_off_phrase: initialData.sign_off_phrase || "With All Our Love",
       quote: initialData.quote || presets.quote,
     },
   });
@@ -113,7 +123,7 @@ export function Step2Message({ eventType = "birthday", initialData, onNext, onBa
     <form onSubmit={handleSubmit(onNext)} className="space-y-6">
       <div className="text-center space-y-2 mb-8">
         <h2 className="text-2xl sm:text-3xl font-extrabold text-white">Write Your Personal Wishes</h2>
-        <p className="text-sm text-slate-400">Customize the headline title, letter body, and your signature.</p>
+        <p className="text-sm text-slate-400">Customize the headline title, letter body, sign-off phrase, and signature.</p>
       </div>
 
       <div className="space-y-5">
@@ -160,6 +170,28 @@ export function Step2Message({ eventType = "birthday", initialData, onNext, onBa
           error={errors.sender_name?.message}
           {...register("sender_name")}
         />
+
+        <div>
+          <Input
+            label="Sign-off Line / Closing Phrase (Editable)"
+            placeholder="e.g. With All Our Love, With Love, Best Wishes"
+            error={errors.sign_off_phrase?.message}
+            {...register("sign_off_phrase")}
+          />
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <span className="text-xs text-slate-400 font-medium mr-1">Quick Closing Presets:</span>
+            {SIGN_OFF_PRESETS.map((preset, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => setValue("sign_off_phrase", preset)}
+                className="text-xs px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-pink-300 hover:border-pink-500 transition-colors"
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
+        </div>
 
         <Input
           label="Favorite Quote or Short Wish (Optional)"

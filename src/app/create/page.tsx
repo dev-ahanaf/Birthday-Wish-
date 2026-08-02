@@ -26,6 +26,7 @@ function CreateWishForm() {
     message: "Wishing you a year ahead filled with warm smiles, unforgettable adventures, and endless joy!",
     quote: "Age is merely the number of years the world has been enjoying you!",
     sender_name: "",
+    sign_off_phrase: "With All Our Love",
     theme: initialThemeQuery,
     music_track: "synth-celebration",
     music_enabled: true,
@@ -74,6 +75,7 @@ function CreateWishForm() {
             title: formData.title,
             message: formData.message,
             sender_name: formData.sender_name,
+            sign_off_phrase: formData.sign_off_phrase,
             quote: formData.quote,
           }}
           onNext={(data) => {

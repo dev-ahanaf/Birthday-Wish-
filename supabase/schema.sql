@@ -8,6 +8,7 @@ create table if not exists public.birthday_wishes (
     event_type text default 'birthday',
     recipient_name text not null,
     sender_name text not null,
+    sign_off_phrase text default 'With All Our Love',
     title text,
     message text not null,
     quote text,
@@ -23,8 +24,9 @@ create table if not exists public.birthday_wishes (
     updated_at timestamptz default now()
 );
 
--- Ensure event_type column exists on existing installations
+-- Ensure event_type and sign_off_phrase columns exist on existing installations
 alter table public.birthday_wishes add column if not exists event_type text default 'birthday';
+alter table public.birthday_wishes add column if not exists sign_off_phrase text default 'With All Our Love';
 
 create unique index if not exists birthday_wishes_slug_idx
 on public.birthday_wishes (slug);

@@ -33,6 +33,7 @@ export interface BirthdayWish {
   event_type?: EventType;
   recipient_name: string;
   sender_name: string;
+  sign_off_phrase?: string;
   title?: string;
   message: string;
   quote?: string;
@@ -58,6 +59,7 @@ export interface WishFormData {
   message: string;
   quote?: string;
   sender_name: string;
+  sign_off_phrase?: string;
   theme: ThemeId;
   music_track: string;
   music_enabled: boolean;

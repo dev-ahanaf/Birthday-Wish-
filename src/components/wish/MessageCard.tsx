@@ -11,10 +11,11 @@ interface MessageCardProps {
   message: string;
   quote?: string;
   senderName: string;
+  signOffPhrase?: string;
   themeId: ThemeId;
 }
 
-export function MessageCard({ title, message, quote, senderName, themeId }: MessageCardProps) {
+export function MessageCard({ title, message, quote, senderName, signOffPhrase, themeId }: MessageCardProps) {
   const theme = THEMES[themeId] || THEMES.romantic;
 
   return (
@@ -44,7 +45,9 @@ export function MessageCard({ title, message, quote, senderName, themeId }: Mess
         )}
 
         <div className="pt-4 border-t border-white/10 flex items-center justify-between text-sm">
-          <span className="text-xs uppercase tracking-widest text-slate-400 font-semibold">With All Our Love</span>
+          <span className="text-xs uppercase tracking-widest text-slate-400 font-semibold">
+            {signOffPhrase || "With All Our Love"}
+          </span>
           <div className="flex items-center gap-1.5 font-bold text-pink-300">
             <Heart className="w-4 h-4 text-rose-400 fill-rose-400 animate-pulse" />
             <span>{senderName}</span>
