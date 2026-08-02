@@ -2,6 +2,16 @@ export type ThemeId = 'romantic' | 'elegant' | 'party' | 'playful' | 'minimal';
 
 export type EffectType = 'confetti' | 'balloons' | 'stars' | 'hearts' | 'fireworks' | 'flowers';
 
+export type EventType =
+  | 'birthday'
+  | 'wedding'
+  | 'engagement'
+  | 'success'
+  | 'anniversary'
+  | 'baby'
+  | 'appreciation'
+  | 'custom';
+
 export type RelationshipType = 
   | 'friend' 
   | 'partner' 
@@ -20,6 +30,7 @@ export interface WishPhoto {
 export interface BirthdayWish {
   id: string;
   slug: string;
+  event_type?: EventType;
   recipient_name: string;
   sender_name: string;
   title?: string;
@@ -39,6 +50,7 @@ export interface BirthdayWish {
 }
 
 export interface WishFormData {
+  event_type: EventType;
   recipient_name: string;
   relationship: RelationshipType;
   birthday_date?: string;

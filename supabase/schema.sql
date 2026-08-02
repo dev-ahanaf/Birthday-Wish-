@@ -5,6 +5,7 @@ create extension if not exists pgcrypto;
 create table if not exists public.birthday_wishes (
     id uuid primary key default gen_random_uuid(),
     slug text unique not null,
+    event_type text default 'birthday',
     recipient_name text not null,
     sender_name text not null,
     title text,
@@ -21,6 +22,9 @@ create table if not exists public.birthday_wishes (
     created_at timestamptz default now(),
     updated_at timestamptz default now()
 );
+
+-- Ensure event_type column exists on existing installations
+alter table public.birthday_wishes add column if not exists event_type text default 'birthday';
 
 create unique index if not exists birthday_wishes_slug_idx
 on public.birthday_wishes (slug);

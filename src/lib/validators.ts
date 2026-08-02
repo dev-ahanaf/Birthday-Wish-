@@ -1,6 +1,16 @@
 import { z } from "zod";
 
 export const step1Schema = z.object({
+  event_type: z.enum([
+    "birthday",
+    "wedding",
+    "engagement",
+    "success",
+    "anniversary",
+    "baby",
+    "appreciation",
+    "custom",
+  ]),
   recipient_name: z
     .string()
     .min(2, "Recipient name must be at least 2 characters")

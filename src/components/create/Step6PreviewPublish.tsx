@@ -82,6 +82,7 @@ export function Step6PreviewPublish({ formData, onEditStep }: Step6Props) {
         .from("birthday_wishes")
         .insert({
           slug,
+          event_type: formData.event_type,
           recipient_name: formData.recipient_name.trim(),
           sender_name: formData.sender_name.trim(),
           title: formData.title ? formData.title.trim() : null,

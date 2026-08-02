@@ -18,6 +18,7 @@ function CreateWishForm() {
 
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<WishFormData>({
+    event_type: "birthday",
     recipient_name: "",
     relationship: "friend",
     birthday_date: "",
@@ -54,6 +55,7 @@ function CreateWishForm() {
       {currentStep === 1 && (
         <Step1Recipient
           initialData={{
+            event_type: formData.event_type,
             recipient_name: formData.recipient_name,
             relationship: formData.relationship,
             birthday_date: formData.birthday_date,
@@ -67,6 +69,7 @@ function CreateWishForm() {
 
       {currentStep === 2 && (
         <Step2Message
+          eventType={formData.event_type}
           initialData={{
             title: formData.title,
             message: formData.message,

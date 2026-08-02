@@ -4,15 +4,55 @@ import React from "react";
 import { motion } from "framer-motion";
 import { Sparkles, Heart } from "lucide-react";
 import { Badge } from "../ui/Badge";
+import { EventType } from "@/lib/types";
 
 interface BirthdayHeaderProps {
   recipientName: string;
-  relationship: string;
+  relationship?: string;
   birthdayDate?: string;
   themeId: string;
+  eventType?: EventType;
 }
 
-export function BirthdayHeader({ recipientName, relationship, birthdayDate }: BirthdayHeaderProps) {
+export function BirthdayHeader({ recipientName, birthdayDate, eventType = "birthday" }: BirthdayHeaderProps) {
+  const getBadgeText = () => {
+    switch (eventType) {
+      case "wedding":
+        return "Wedding Celebration 💍";
+      case "engagement":
+        return "Engagement Celebration 💎";
+      case "success":
+        return "Success & Milestone 🎓🏆";
+      case "anniversary":
+        return "Happy Anniversary 🥂";
+      case "baby":
+        return "New Baby Celebration 👶";
+      case "appreciation":
+        return "Heartfelt Appreciation 💖";
+      default:
+        return "Special Celebration 🎉";
+    }
+  };
+
+  const getSalutation = () => {
+    switch (eventType) {
+      case "wedding":
+        return "Congratulations,";
+      case "engagement":
+        return "Happy Engagement,";
+      case "success":
+        return "Congratulations,";
+      case "anniversary":
+        return "Happy Anniversary,";
+      case "baby":
+        return "Welcome Little One,";
+      case "appreciation":
+        return "Thank You,";
+      default:
+        return "Happy Birthday,";
+    }
+  };
+
   return (
     <div className="text-center space-y-4 pt-12 pb-6 px-4">
       <motion.div
@@ -23,7 +63,7 @@ export function BirthdayHeader({ recipientName, relationship, birthdayDate }: Bi
       >
         <Badge variant="pink" className="px-4 py-1 text-xs uppercase tracking-widest border-pink-400/40">
           <Sparkles className="w-3.5 h-3.5 mr-1 text-pink-300 animate-spin" />
-          Happy Birthday Celebration
+          {getBadgeText()}
         </Badge>
       </motion.div>
 
@@ -33,9 +73,9 @@ export function BirthdayHeader({ recipientName, relationship, birthdayDate }: Bi
         transition={{ duration: 0.7, delay: 0.2 }}
         className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white leading-tight"
       >
-        Happy Birthday, <br />
+        {getSalutation()} <br />
         <span className="bg-gradient-to-r from-pink-300 via-rose-200 to-amber-200 bg-clip-text text-transparent drop-shadow-lg">
-          {recipientName}! 🎉
+          {recipientName}! ✨
         </span>
       </motion.h1>
 
@@ -46,7 +86,7 @@ export function BirthdayHeader({ recipientName, relationship, birthdayDate }: Bi
           transition={{ duration: 0.5, delay: 0.4 }}
           className="text-sm font-medium text-pink-200/90 tracking-wide"
         >
-          Special Day: {(() => {
+          Special Date: {(() => {
             try {
               const d = new Date(birthdayDate + "T00:00:00");
               return isNaN(d.getTime()) ? birthdayDate : d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });

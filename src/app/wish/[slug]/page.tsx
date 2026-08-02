@@ -69,6 +69,7 @@ export default function WishPage() {
           const normalizedWish: BirthdayWish = {
             id: data.id,
             slug: data.slug,
+            event_type: data.event_type || "birthday",
             recipient_name: data.recipient_name,
             sender_name: data.sender_name,
             title: data.title || "Happy Birthday! 🎉",
@@ -220,6 +221,7 @@ export default function WishPage() {
             relationship={wish.relationship || "friend"}
             birthdayDate={wish.birthday_date}
             themeId={wish.theme}
+            eventType={wish.event_type}
           />
 
           <MessageCard
