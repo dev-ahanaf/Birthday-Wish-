@@ -1,18 +1,41 @@
 import { Metadata } from "next";
-import { fetchWishBySlug } from "@/lib/supabase/client";
+import { createClient } from "@/lib/supabase/server";
 
 type Props = {
   params: { slug: string };
 };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const wish = await fetchWishBySlug(params.slug);
+  let recipient_name = "";
+  let title_text = "";
+  let sender_name = "";
+  let photo_url = "";
 
-  const title = wish
-    ? `🎉 A Special Birthday Surprise for ${wish.recipient_name}!`
+  try {
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("birthday_wishes")
+      .select("*")
+      .eq("slug", params.slug)
+      .maybeSingle();
+
+    if (data) {
+      recipient_name = data.recipient_name;
+      title_text = data.title || "Happy Birthday! 🎉";
+      sender_name = data.sender_name;
+      if (Array.isArray(data.photo_urls) && data.photo_urls[0]) {
+        photo_url = data.photo_urls[0];
+      }
+    }
+  } catch {
+    // Ignore server metadata fetch error
+  }
+
+  const title = recipient_name
+    ? `🎉 A Special Birthday Surprise for ${recipient_name}!`
     : "🎉 A Special Birthday Surprise | WishBloom";
-  const description = wish
-    ? `"${wish.title}" - Tap to open your full-screen animated birthday surprise from ${wish.sender_name}!`
+  const description = title_text
+    ? `"${title_text}" - Tap to open your full-screen animated birthday surprise from ${sender_name}!`
     : "Tap to open your full-screen animated birthday surprise!";
 
   return {
@@ -22,7 +45,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title,
       description,
       type: "website",
-      images: wish?.photos && wish.photos[0] ? [wish.photos[0].image_url] : undefined,
+      images: photo_url ? [photo_url] : undefined,
     },
     twitter: {
       card: "summary_large_image",
@@ -35,3 +58,4 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default function WishLayout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
+

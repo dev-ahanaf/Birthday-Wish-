@@ -1,8 +1,11 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import { WishFormData, BirthdayWish } from "@/lib/types";
-import { createWishInDatabase, encodeWishToUrl } from "@/lib/supabase/client";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
+import { uploadPhotoToSupabase } from "@/lib/supabase/storage";
+import { generateSlug } from "@/lib/slug";
 import { THEMES } from "@/lib/themes";
 import { Button } from "../ui/Button";
 import { Card } from "../ui/Card";
@@ -16,10 +19,10 @@ import {
   Send, 
   ExternalLink, 
   ArrowLeft,
-  Heart,
   MessageCircle,
   Mail,
-  Facebook
+  Facebook,
+  AlertTriangle
 } from "lucide-react";
 import Link from "next/link";
 
@@ -29,20 +32,102 @@ interface Step6Props {
 }
 
 export function Step6PreviewPublish({ formData, onEditStep }: Step6Props) {
+  const router = useRouter();
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishedWish, setPublishedWish] = useState<BirthdayWish | null>(null);
+  const [publishError, setPublishError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const themeConfig = THEMES[formData.theme] || THEMES.romantic;
 
   const handlePublish = async () => {
+    if (isPublishing) return;
     setIsPublishing(true);
+    setPublishError(null);
+
+    const supabase = createClient();
+    const slug = generateSlug();
+
+    console.log("[Verification Debug] Publishing Wish:", {
+      supabaseConfigured: isSupabaseConfigured,
+      generatedSlug: slug,
+      recipient: formData.recipient_name,
+    });
+
     try {
-      const created = await createWishInDatabase(formData);
-      setPublishedWish(created);
-    } catch {
-      alert("Failed to save wish. Please try again.");
-    } finally {
+      // 1. Upload photos to Supabase Storage wish-photos bucket
+      const uploadedPhotoUrls: string[] = [];
+      if (formData.photos && formData.photos.length > 0) {
+        for (let i = 0; i < formData.photos.length; i++) {
+          const photo = formData.photos[i];
+          try {
+            const publicUrl = await uploadPhotoToSupabase(
+              photo.file || photo.url,
+              slug,
+              i
+            );
+            uploadedPhotoUrls.push(publicUrl);
+          } catch (uploadErr) {
+            console.warn(`[Photo Upload Warning] Failed uploading photo #${i}:`, uploadErr);
+            // Fall back to image URL if it's http/https
+            if (photo.url && photo.url.startsWith("http")) {
+              uploadedPhotoUrls.push(photo.url);
+            }
+          }
+        }
+      }
+
+      // 2. Insert record into birthday_wishes table using .insert().select().single()
+      const { data: savedWish, error } = await supabase
+        .from("birthday_wishes")
+        .insert({
+          slug,
+          recipient_name: formData.recipient_name.trim(),
+          sender_name: formData.sender_name.trim(),
+          title: formData.title ? formData.title.trim() : null,
+          message: formData.message.trim(),
+          quote: formData.quote ? formData.quote.trim() : null,
+          relationship: formData.relationship,
+          birthday_date: formData.birthday_date || null,
+          theme: formData.theme,
+          music_url: formData.music_track,
+          effects: formData.effects,
+          photo_urls: uploadedPhotoUrls,
+          is_public: true,
+        })
+        .select()
+        .single();
+
+      console.log("[Verification Debug] Supabase Insert Result:", {
+        success: !error,
+        returnedSlug: savedWish?.slug,
+        error: error ? error.message : null,
+      });
+
+      if (error || !savedWish) {
+        const errorDetails = error ? `${error.message} (${error.code || "DB_ERROR"})` : "Failed to retrieve saved record";
+        console.error("[Supabase Insert Error]:", error);
+        setPublishError(`Database error: ${errorDetails}`);
+        setIsPublishing(false);
+        return;
+      }
+
+      // 3. Success: Clear temporary form draft
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("wishbloom-draft");
+      }
+
+      setPublishedWish(savedWish as BirthdayWish);
+
+      // 4. Redirect after confirmed database insert
+      setTimeout(() => {
+        router.push(`/wish/${savedWish.slug}`);
+      }, 1200);
+
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "An unexpected network error occurred.";
+      console.error("[Publish Exception]:", err);
+      setPublishError(message);
       setIsPublishing(false);
     }
   };
@@ -50,8 +135,7 @@ export function Step6PreviewPublish({ formData, onEditStep }: Step6Props) {
   const getFullShareUrl = () => {
     if (!publishedWish) return "";
     const origin = typeof window !== "undefined" ? window.location.origin : "";
-    const encoded = encodeWishToUrl(publishedWish);
-    return `${origin}/wish/${publishedWish.slug}${encoded ? `?d=${encoded}` : ""}`;
+    return `${origin}/wish/${publishedWish.slug}`;
   };
 
   const handleCopyLink = () => {
@@ -85,7 +169,7 @@ export function Step6PreviewPublish({ formData, onEditStep }: Step6Props) {
 
   return (
     <div className="space-y-8">
-      {/* State A: Published Success Screen */}
+      {/* Published Success Screen */}
       {publishedWish ? (
         <Card variant="glowing" className="p-8 text-center space-y-6 animate-in zoom-in-95">
           <div className="w-16 h-16 rounded-full bg-pink-500/20 text-pink-400 border border-pink-500/40 flex items-center justify-center mx-auto shadow-xl">
@@ -93,14 +177,14 @@ export function Step6PreviewPublish({ formData, onEditStep }: Step6Props) {
           </div>
 
           <div className="space-y-2">
-            <Badge variant="pink" className="px-3 py-1">SURPRISE READY TO SHARE</Badge>
+            <Badge variant="pink" className="px-3 py-1">SAVED TO CLOUD DATABASE</Badge>
             <h2 className="text-3xl font-extrabold text-white">Your Wish Page is Published!</h2>
             <p className="text-slate-300 text-sm max-w-md mx-auto">
-              Send this link to <strong>{publishedWish.recipient_name}</strong>. They will see the animated full-screen reveal!
+              Redirecting to <strong>/wish/{publishedWish.slug}</strong>...
             </p>
           </div>
 
-          {/* Share Link Input Box */}
+          {/* Share Link Box */}
           <div className="max-w-xl mx-auto p-2 bg-slate-950 border border-pink-500/30 rounded-2xl flex flex-col sm:flex-row items-center gap-2 shadow-inner">
             <input
               type="text"
@@ -119,7 +203,7 @@ export function Step6PreviewPublish({ formData, onEditStep }: Step6Props) {
             </Button>
           </div>
 
-          {/* Social Share Buttons */}
+          {/* Social Actions */}
           <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
             <Button
               variant="secondary"
@@ -127,8 +211,7 @@ export function Step6PreviewPublish({ formData, onEditStep }: Step6Props) {
               onClick={shareWhatsApp}
               className="bg-emerald-600/20 border-emerald-500/40 text-emerald-300 hover:bg-emerald-600/30"
             >
-              <MessageCircle className="w-4 h-4 mr-1.5 fill-current" />
-              WhatsApp
+              <MessageCircle className="w-4 h-4 mr-1.5 fill-current" /> WhatsApp
             </Button>
             <Button
               variant="secondary"
@@ -136,8 +219,7 @@ export function Step6PreviewPublish({ formData, onEditStep }: Step6Props) {
               onClick={shareFacebook}
               className="bg-blue-600/20 border-blue-500/40 text-blue-300 hover:bg-blue-600/30"
             >
-              <Facebook className="w-4 h-4 mr-1.5 fill-current" />
-              Facebook
+              <Facebook className="w-4 h-4 mr-1.5 fill-current" /> Facebook
             </Button>
             <Button
               variant="secondary"
@@ -145,38 +227,48 @@ export function Step6PreviewPublish({ formData, onEditStep }: Step6Props) {
               onClick={shareEmail}
               className="bg-purple-600/20 border-purple-500/40 text-purple-300 hover:bg-purple-600/30"
             >
-              <Mail className="w-4 h-4 mr-1.5" />
-              Email
+              <Mail className="w-4 h-4 mr-1.5" /> Email
             </Button>
           </div>
 
-          {/* Actions */}
-          <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href={`/wish/${publishedWish.slug}`} target="_blank">
-              <Button variant="outline" size="lg" className="w-full sm:w-auto">
-                <ExternalLink className="w-4 h-4 mr-2" />
-                View Wish Page Live
-              </Button>
-            </Link>
-            <Link href="/dashboard">
-              <Button variant="secondary" size="lg" className="w-full sm:w-auto">
-                Go to Dashboard
+          <div className="pt-4 border-t border-slate-800 flex justify-center gap-4">
+            <Link href={`/wish/${publishedWish.slug}`}>
+              <Button variant="outline" size="lg">
+                <ExternalLink className="w-4 h-4 mr-2" /> View Wish Page Now
               </Button>
             </Link>
           </div>
         </Card>
       ) : (
-        /* State B: Live Summary & Preview before Publishing */
+        /* Summary & Publish Trigger */
         <div className="space-y-6">
           <div className="text-center space-y-2 mb-6">
             <h2 className="text-2xl sm:text-3xl font-extrabold text-white">Preview Your Birthday Page</h2>
-            <p className="text-sm text-slate-400">Review your settings before generating your unique share link.</p>
+            <p className="text-sm text-slate-400">Review your settings before saving to the cloud database.</p>
           </div>
 
-          {/* Live Preview Screen Card */}
+          {/* Config Status Banner */}
+          {!isSupabaseConfigured && (
+            <div className="p-4 rounded-2xl bg-amber-950/60 border border-amber-500/40 text-amber-200 text-xs flex items-center gap-3">
+              <AlertTriangle className="w-5 h-5 flex-shrink-0 text-amber-400" />
+              <div>
+                <strong>Supabase Environment Variables Missing:</strong> Please add <code>NEXT_PUBLIC_SUPABASE_URL</code> and <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> in Vercel project settings to insert wish records.
+              </div>
+            </div>
+          )}
+
+          {/* Database Error Banner */}
+          {publishError && (
+            <div className="p-4 rounded-2xl bg-rose-950/80 border border-rose-500 text-rose-200 text-sm flex items-center gap-3 animate-in shake">
+              <AlertTriangle className="w-5 h-5 flex-shrink-0 text-rose-400" />
+              <div>
+                <strong>Publish Failed:</strong> {publishError}
+              </div>
+            </div>
+          )}
+
+          {/* Live Preview Card */}
           <div className={`p-6 sm:p-8 rounded-3xl bg-gradient-to-b ${themeConfig.bgGradient} border border-white/20 shadow-2xl space-y-6 relative overflow-hidden`}>
-            
-            {/* Header info */}
             <div className="flex items-center justify-between">
               <Badge variant="pink" className="px-3 py-1">
                 THEME: {themeConfig.name.toUpperCase()}
@@ -186,7 +278,6 @@ export function Step6PreviewPublish({ formData, onEditStep }: Step6Props) {
               </span>
             </div>
 
-            {/* Recipient Title */}
             <div className="space-y-1 text-center">
               <span className="text-xs uppercase tracking-widest text-pink-300 font-semibold">Special Surprise For</span>
               <h3 className="text-3xl sm:text-4xl font-extrabold text-white">{formData.recipient_name}</h3>
@@ -195,7 +286,6 @@ export function Step6PreviewPublish({ formData, onEditStep }: Step6Props) {
               )}
             </div>
 
-            {/* Photo preview carousel strip */}
             {formData.photos.length > 0 && (
               <div className="flex items-center justify-center gap-3 overflow-x-auto py-2">
                 {formData.photos.map((p, idx) => (
@@ -206,7 +296,6 @@ export function Step6PreviewPublish({ formData, onEditStep }: Step6Props) {
               </div>
             )}
 
-            {/* Wish Text Summary Box */}
             <div className="bg-black/40 p-5 rounded-2xl border border-white/10 backdrop-blur-md space-y-3">
               <h4 className="text-lg font-bold text-white">{formData.title}</h4>
               <p className="text-sm text-slate-200 leading-relaxed font-serif italic">{formData.message}</p>
@@ -216,17 +305,6 @@ export function Step6PreviewPublish({ formData, onEditStep }: Step6Props) {
               <div className="text-right text-xs text-slate-300 pt-2 border-t border-white/10">
                 — Sent with love by <strong>{formData.sender_name}</strong>
               </div>
-            </div>
-
-            {/* Effects badges */}
-            <div className="flex flex-wrap items-center gap-2 justify-center text-xs text-white/80">
-              <span>Effects:</span>
-              {formData.effects.map((eff) => (
-                <span key={eff} className="px-2.5 py-0.5 rounded-full bg-white/10 border border-white/20 capitalize">
-                  {eff}
-                </span>
-              ))}
-              <span>Audio: {formData.music_enabled ? "Enabled" : "Muted"}</span>
             </div>
           </div>
 
@@ -258,7 +336,7 @@ export function Step6PreviewPublish({ formData, onEditStep }: Step6Props) {
             </div>
           </div>
 
-          {/* Publish Trigger */}
+          {/* Publish Button */}
           <div className="pt-4 flex items-center justify-between gap-4">
             <Button variant="secondary" size="lg" type="button" onClick={() => onEditStep(5)}>
               <ArrowLeft className="w-4 h-4 mr-1" />
@@ -269,11 +347,12 @@ export function Step6PreviewPublish({ formData, onEditStep }: Step6Props) {
               size="xl"
               type="button"
               isLoading={isPublishing}
+              disabled={isPublishing}
               onClick={handlePublish}
               className="shadow-2xl shadow-pink-500/40"
             >
               <Send className="w-5 h-5 mr-2" />
-              Publish & Get Share Link
+              Publish to Database & Get Link
             </Button>
           </div>
         </div>

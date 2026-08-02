@@ -21,24 +21,21 @@ export interface BirthdayWish {
   id: string;
   slug: string;
   recipient_name: string;
-  relationship: RelationshipType;
-  birthday_date?: string;
-  title: string;
+  sender_name: string;
+  title?: string;
   message: string;
   quote?: string;
-  sender_name: string;
+  relationship?: RelationshipType;
+  birthday_date?: string;
   theme: ThemeId;
-  music_track: string;
-  music_enabled: boolean;
-  confetti_enabled: boolean;
+  music_url?: string;
   effects: EffectType[];
-  view_count: number;
+  photo_urls: string[];
+  photos?: { id?: string; image_url: string; display_order: number }[];
   is_public: boolean;
-  expires_at?: string;
-  report_count?: number;
+  view_count: number;
   created_at: string;
   updated_at: string;
-  photos?: WishPhoto[];
 }
 
 export interface WishFormData {

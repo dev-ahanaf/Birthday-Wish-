@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { BirthdayWish } from "@/lib/types";
-import { fetchAllUserWishes, deleteWishBySlug } from "@/lib/supabase/client";
+import { createClient, isSupabaseConfigured } from "@/lib/supabase/client";
 import { THEMES } from "@/lib/themes";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -17,31 +17,72 @@ import {
   ExternalLink, 
   Trash2, 
   PlusCircle, 
-  Share2,
-  Calendar
+  Calendar,
+  AlertTriangle
 } from "lucide-react";
 
 export default function DashboardPage() {
   const [wishes, setWishes] = useState<BirthdayWish[]>([]);
   const [loading, setLoading] = useState(true);
   const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    async function load() {
+    async function loadUserWishes() {
       setLoading(true);
-      const data = await fetchAllUserWishes();
-      setWishes(data);
-      setLoading(false);
+      setErrorMsg(null);
+      const supabase = createClient();
+
+      try {
+        const { data, error } = await supabase
+          .from("birthday_wishes")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("[Dashboard Fetch Error]:", error);
+          setErrorMsg(error.message);
+        } else if (data) {
+          const formatted: BirthdayWish[] = data.map((d) => ({
+            id: d.id,
+            slug: d.slug,
+            recipient_name: d.recipient_name,
+            sender_name: d.sender_name,
+            title: d.title || "Happy Birthday! 🎉",
+            message: d.message,
+            quote: d.quote,
+            relationship: d.relationship,
+            birthday_date: d.birthday_date,
+            theme: d.theme || "romantic",
+            music_url: d.music_url,
+            effects: d.effects || [],
+            photo_urls: d.photo_urls || [],
+            is_public: d.is_public ?? true,
+            view_count: d.view_count || 0,
+            created_at: d.created_at,
+            updated_at: d.updated_at,
+          }));
+          setWishes(formatted);
+        }
+      } catch (err) {
+        console.error("[Dashboard Exception]:", err);
+      } finally {
+        setLoading(false);
+      }
     }
-    load();
+
+    loadUserWishes();
   }, []);
 
   const handleDelete = async (slug: string) => {
-    if (!confirm("Are you sure you want to delete this wish? This action cannot be undone.")) {
-      return;
+    if (!confirm("Are you sure you want to delete this wish?")) return;
+    const supabase = createClient();
+    try {
+      await supabase.from("birthday_wishes").delete().eq("slug", slug);
+      setWishes((prev) => prev.filter((w) => w.slug !== slug));
+    } catch (err) {
+      alert("Failed to delete wish from database.");
     }
-    await deleteWishBySlug(slug);
-    setWishes((prev) => prev.filter((w) => w.slug !== slug));
   };
 
   const handleCopyLink = (slug: string) => {
@@ -56,16 +97,14 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen pt-28 pb-20 px-4 sm:px-6 lg:px-8 bg-slate-950 relative overflow-hidden">
-      {/* Background glow */}
       <div className="absolute top-10 right-10 w-[500px] h-[400px] bg-purple-600/10 blur-[140px] rounded-full pointer-events-none" />
 
       <div className="max-w-6xl mx-auto relative z-10 space-y-8">
-        
-        {/* Page Header */}
+        {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl sm:text-4xl font-extrabold text-white">Wish Dashboard</h1>
-            <p className="text-slate-400 text-sm mt-1">Manage your created birthday surprises & view analytics.</p>
+            <p className="text-slate-400 text-sm mt-1">Manage published birthday surprises in Supabase database.</p>
           </div>
           <Link href="/create">
             <Button variant="gradient" size="lg" className="shadow-lg shadow-pink-500/20">
@@ -75,7 +114,17 @@ export default function DashboardPage() {
           </Link>
         </div>
 
-        {/* Analytics Summary Stats */}
+        {/* Database Status Banner */}
+        {!isSupabaseConfigured && (
+          <div className="p-4 rounded-2xl bg-amber-950/60 border border-amber-500/40 text-amber-200 text-xs flex items-center gap-3">
+            <AlertTriangle className="w-5 h-5 text-amber-400 flex-shrink-0" />
+            <div>
+              <strong>Database Configuration Warning:</strong> Supabase environment variables are missing. Please add <code>NEXT_PUBLIC_SUPABASE_URL</code> and <code>NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY</code> to enable cloud persistence.
+            </div>
+          </div>
+        )}
+
+        {/* Analytics Summary */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
           <Card variant="glass" className="p-6 flex items-center gap-4">
             <div className="w-12 h-12 rounded-2xl bg-pink-500/20 text-pink-400 border border-pink-500/30 flex items-center justify-center">
@@ -102,8 +151,10 @@ export default function DashboardPage() {
               <Sparkles className="w-6 h-6" />
             </div>
             <div>
-              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Surprise Status</span>
-              <h3 className="text-2xl font-bold text-emerald-400">100% Active</h3>
+              <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Cloud Storage</span>
+              <h3 className="text-2xl font-bold text-emerald-400">
+                {isSupabaseConfigured ? "Connected" : "Disconnected"}
+              </h3>
             </div>
           </Card>
         </div>
@@ -111,17 +162,21 @@ export default function DashboardPage() {
         {/* Wishes List */}
         <div className="space-y-4">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <Gift className="w-5 h-5 text-pink-400" /> Your Created Birthday Wishes
+            <Gift className="w-5 h-5 text-pink-400" /> Database Wishes
           </h2>
 
           {loading ? (
-            <div className="p-12 text-center text-slate-400 animate-pulse">Loading dashboard...</div>
+            <div className="p-12 text-center text-slate-400 animate-pulse">Querying Supabase database...</div>
+          ) : errorMsg ? (
+            <Card variant="glass" className="p-8 text-center text-rose-300">
+              Database error: {errorMsg}
+            </Card>
           ) : wishes.length === 0 ? (
             <Card variant="glass" className="p-12 text-center space-y-4">
               <Gift className="w-12 h-12 text-pink-500/40 mx-auto" />
-              <h3 className="text-xl font-bold text-white">No birthday wishes created yet</h3>
+              <h3 className="text-xl font-bold text-white">No birthday wishes found in database</h3>
               <p className="text-slate-400 text-sm max-w-sm mx-auto">
-                Create your first animated surprise page and share it with someone special!
+                Create a wish to publish your first surprise page to the cloud!
               </p>
               <Link href="/create">
                 <Button variant="gradient" size="md">
@@ -142,7 +197,7 @@ export default function DashboardPage() {
                         </Badge>
                         <h3 className="text-xl font-bold text-white">{w.recipient_name}</h3>
                         <span className="text-xs text-slate-400">
-                          Relationship: <strong className="capitalize">{w.relationship}</strong>
+                          Relationship: <strong className="capitalize">{w.relationship || "friend"}</strong>
                         </span>
                       </div>
                       <div className="flex items-center gap-1.5 text-xs text-slate-400 bg-slate-900/80 px-2.5 py-1 rounded-full border border-slate-800">
@@ -163,11 +218,10 @@ export default function DashboardPage() {
                       <span>From: <strong>{w.sender_name}</strong></span>
                     </div>
 
-                    {/* Action buttons */}
                     <div className="pt-2 flex items-center justify-between gap-2">
                       <Link href={`/wish/${w.slug}`} target="_blank">
                         <Button variant="outline" size="sm">
-                          <ExternalLink className="w-3.5 h-3.5 mr-1" /> Preview
+                          <ExternalLink className="w-3.5 h-3.5 mr-1" /> Open Wish
                         </Button>
                       </Link>
 
